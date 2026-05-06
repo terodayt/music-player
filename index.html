@@ -1,52 +1,49 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Erika Music</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        :root { --bg: #0b0e14; --card: #1a1d23; --accent: #a29bfe; --text: #f0f0f0; }
-        body { background: var(--bg); color: var(--text); font-family: sans-serif; margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; }
+        body { background: #0b0e14; color: #f0f0f0; font-family: sans-serif; padding: 15px; margin: 0; }
+        .search-box { display: flex; gap: 8px; margin-bottom: 15px; }
+        input { flex: 1; padding: 10px; border-radius: 10px; border: 1px solid #2d3139; background: #1a1d23; color: white; }
+        button { padding: 10px; border-radius: 10px; background: #a29bfe; border: none; font-weight: bold; }
         
-        .tabs { display: flex; width: 100%; max-width: 380px; background: var(--card); border-radius: 14px; padding: 4px; margin-bottom: 20px; }
-        .tab { flex: 1; padding: 10px; text-align: center; border-radius: 10px; cursor: pointer; color: #6c757d; font-size: 14px; }
-        .tab.active { background: var(--accent); color: #0b0e14; font-weight: bold; }
+        .tabs { display: flex; background: #1a1d23; border-radius: 12px; padding: 4px; margin-bottom: 15px; }
+        .tab { flex: 1; padding: 8px; text-align: center; cursor: pointer; border-radius: 10px; color: #6c757d; }
+        .tab.active { background: #a29bfe; color: #0b0e14; font-weight: bold; }
 
-        .player { background: var(--card); width: 100%; max-width: 380px; border-radius: 20px; padding: 20px; text-align: center; border: 1px solid #2d3139; margin-bottom: 20px; }
-        #art { width: 120px; height: 120px; border-radius: 15px; background: #252930; object-fit: cover; margin-bottom: 15px; }
-        #title { font-size: 16px; font-weight: bold; margin-bottom: 4px; }
-        #artist { font-size: 13px; color: var(--accent); margin-bottom: 15px; }
-        audio { width: 100%; height: 35px; }
-
-        .list { width: 100%; max-width: 380px; }
-        .track { background: var(--card); padding: 12px; border-radius: 15px; margin-bottom: 10px; display: flex; align-items: center; border: 1px solid #2d3139; }
-        .track-info { flex: 1; min-width: 0; cursor: pointer; }
-        .t-name { font-size: 14px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .t-art { font-size: 12px; color: #6c757d; }
-        .btn-plus { color: var(--accent); font-size: 26px; padding: 0 10px; cursor: pointer; }
+        .player { background: #1a1d23; border-radius: 20px; padding: 20px; text-align: center; border: 1px solid #2d3139; margin-bottom: 20px; }
+        audio { width: 100%; margin-top: 15px; }
+        
+        .track { background: #1a1d23; padding: 12px; border-radius: 12px; margin-bottom: 8px; display: flex; align-items: center; border: 1px solid #2d3139; }
+        .info { flex: 1; }
+        .add { color: #a29bfe; font-size: 24px; padding: 0 10px; }
     </style>
 </head>
 <body>
 
+    <div class="search-box">
+        <input type="text" id="si" placeholder="Название песни или артист...">
+        <button onclick="doSearch()">Найти</button>
+    </div>
+
     <div class="tabs">
-        <div class="tab active" id="t1" onclick="sw(1)">Результаты ВК</div>
-        <div class="tab" id="t2" onclick="sw(2)">Моё Облако (TG)</div>
+        <div class="tab active" id="b1" onclick="sm(1)">Лента ВК</div>
+        <div class="tab" id="b2" onclick="sm(2)">Облако TG</div>
     </div>
 
     <div class="player">
-        <img id="art" src="https://img.icons8.com/fluency/180/compact-disc.png">
-        <div id="title">Выбери трек</div>
-        <div id="artist">Поиск в ВК через чат</div>
+        <div id="cur-t" style="font-weight: bold;">Выбери музыку</div>
         <audio id="audio" controls></audio>
     </div>
 
-    <div id="list" class="list"></div>
+    <div id="list"></div>
 
     <script>
         const tg = window.Telegram.WebApp;
         let songs = [], mode = 1;
-        const player = document.getElementById('audio');
 
         async function load() {
             const r = await fetch('songs.json?v=' + Date.now());
@@ -58,33 +55,33 @@
             const cont = document.getElementById('list');
             cont.innerHTML = '';
             const filtered = songs.filter(s => mode === 2 ? s.is_cloud : !s.is_cloud);
-            
-            filtered.forEach((s, i) => {
+            filtered.forEach(s => {
                 const d = document.createElement('div');
                 d.className = 'track';
                 d.innerHTML = `
-                    <div class="track-info" onclick="play('${s.url}', '${s.title}', '${s.artist}', '${s.thumb}')">
-                        <div class="t-name">${s.title}</div>
-                        <div class="t-art">${s.artist}</div>
+                    <div class="info" onclick="play('${s.url}','${s.title}')">
+                        <b>${s.title}</b><br><small>${s.artist || 'ВК'}</small>
                     </div>
-                    ${mode === 1 ? `<div class="btn-plus" onclick="save('${s.url}', '${s.title}', '${s.artist}')">⊕</div>` : ''}
+                    ${mode === 1 ? `<div class="add" onclick="save('${s.url}','${s.title}','${s.artist}')">⊕</div>` : ''}
                 `;
                 cont.appendChild(d);
             });
         }
 
-        function play(u, t, a, img) {
-            document.getElementById('title').innerText = t;
-            document.getElementById('artist').innerText = a;
-            document.getElementById('art').src = img;
-            player.src = u;
-            player.play();
+        function play(u, t) { document.getElementById('cur-t').innerText = t; const a = document.getElementById('audio'); a.src = u; a.play(); }
+        function sm(m) { mode = m; document.getElementById('b1').className = m===1?'tab active':'tab'; document.getElementById('b2').className = m===2?'tab active':'tab'; render(); }
+        
+        function doSearch() {
+            const q = document.getElementById('si').value;
+            if(!q) return;
+            tg.sendData("search_" + q);
+            tg.showAlert("Эрика ищет музыку...");
         }
 
-        function sw(m) { mode = m; document.getElementById('t1').className = m===1?'tab active':'tab'; document.getElementById('t2').className = m===2?'tab active':'tab'; render(); }
         function save(u, t, a) { tg.sendData(`cloud_|${u}|${t}|${a}`); tg.close(); }
 
         load();
+        setInterval(load, 5000); // Автообновление каждые 5 сек
     </script>
 </body>
 </html>
