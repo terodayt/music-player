@@ -9,29 +9,54 @@
         body { background: #0f0a1e; color: #e0d7f7; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; }
         .title { color: #a29bfe; font-size: 24px; font-weight: bold; margin: 20px 0; text-shadow: 0 0 10px rgba(162, 155, 254, 0.5); }
         .playlist { width: 100%; max-width: 400px; }
-        .track { background: #1c1433; border: 1px solid #3d2e6e; border-radius: 15px; padding: 20px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
-        .play-btn { background: #6c5ce7; color: white; border: none; padding: 12px 25px; border-radius: 10px; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 15px; width: 100%; }
-        .play-btn:active { transform: scale(0.95); background: #5649c1; }
-        p { font-size: 14px; opacity: 0.8; line-height: 1.5; }
+        .track { background: #1c1433; border: 1px solid #3d2e6e; border-radius: 15px; padding: 15px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+        .track-info { display: flex; flex-direction: column; max-width: 70%; }
+        .track-title { font-weight: bold; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .add-btn { background: #6c5ce7; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; width: 100%; margin-bottom: 25px; cursor: pointer; }
+        .play-btn { background: #a29bfe; color: #0f0a1e; border: none; padding: 8px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
+
     <div class="title">Violet Player 🎧</div>
-    
+
     <div class="playlist">
-        <div class="track">
-            <p>Нажми на кнопку ниже, чтобы отправить запрос боту на загрузку новой музыки.</p>
-            <button class="play-btn" onclick="sendAction('load_playlist')">ДОБАВИТЬ ПЕСНЮ</button>
+        <button class="add-btn" onclick="tg.sendData('load_playlist')">ДОБАВИТЬ ПЕСНЮ</button>
+        
+        <div id="songs-container">
+            <p style="text-align:center; opacity:0.5;">Плейлист пуст. Добавь что-нибудь через бота!</p>
         </div>
     </div>
 
     <script>
         let tg = window.Telegram.WebApp;
-        tg.expand(); // Развернуть на весь экран
+        tg.expand();
 
-        function sendAction(action) {
-            tg.sendData(action); // Отправляет данные боту и закрывает окно
+        function loadPlaylist() {
+            // Добавляем случайное число к ссылке, чтобы избежать кэша
+            fetch('songs.json?nocache=' + Math.random())
+                .then(response => {
+                    if (!response.ok) throw new Error('Файл не найден');
+                    return response.json();
+                })
+                .then(data => {
+                    const container = document.getElementById('songs-container');
+                    container.innerHTML = ''; 
+                    
+                    data.reverse().forEach(song => {
+                        container.innerHTML += `
+                            <div class="track">
+                                <div class="track-info">
+                                    <span class="track-title">${song.title}</span>
+                                </div>
+                                <button class="play-btn" onclick="window.open('${song.url}', '_blank')">PLAY</button>
+                            </div>`;
+                    });
+                })
+                .catch(err => console.log("Ждем первый трек..."));
         }
+
+        loadPlaylist();
     </script>
 </body>
 </html>
