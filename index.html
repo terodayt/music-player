@@ -5,30 +5,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { background: #0f0a1e; color: #e0d7f7; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; }
+        body { background: #0f0a1e; color: #e0d7f7; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; }
         .player-card { 
             background: linear-gradient(145deg, #1c1433, #251b47); width: 100%; max-width: 350px; 
-            border-radius: 25px; padding: 25px; text-align: center; margin-bottom: 20px;
+            border-radius: 25px; padding: 25px; box-shadow: 0 15px 35px rgba(0,0,0,0.5); text-align: center; margin-bottom: 20px;
         }
-        #track-art { width: 180px; height: 180px; border-radius: 20px; object-fit: cover; background: #3d2e6e; }
-        .controls { display: flex; justify-content: center; align-items: center; gap: 20px; margin: 20px 0; }
-        .btn-ctrl { background: none; border: none; color: #a29bfe; font-size: 30px; cursor: pointer; }
-        .play-pause { font-size: 50px; }
+        #track-art { width: 180px; height: 180px; border-radius: 20px; object-fit: cover; margin-bottom: 15px; box-shadow: 0 8px 20px rgba(0,0,0,0.4); background: #3d2e6e; }
+        #track-name { font-size: 18px; font-weight: bold; height: 50px; overflow: hidden; margin: 10px 0; }
+        .controls { display: flex; justify-content: center; align-items: center; gap: 25px; margin: 20px 0; }
+        .btn-ctrl { background: none; border: none; color: #a29bfe; font-size: 35px; cursor: pointer; transition: 0.2s; }
+        .btn-ctrl:active { transform: scale(0.85); color: #6c5ce7; }
+        .play-pause { font-size: 55px; }
         .playlist { width: 100%; max-width: 350px; }
         .track-item { 
             background: rgba(28, 20, 51, 0.6); border: 1px solid #3d2e6e; padding: 12px; 
             border-radius: 12px; margin-bottom: 8px; display: flex; align-items: center; cursor: pointer;
         }
-        .track-item.active { border-color: #a29bfe; }
+        .track-item.active { border-color: #a29bfe; background: #251b47; }
+        .track-item img { width: 45px; height: 45px; border-radius: 8px; margin-right: 12px; }
     </style>
 </head>
 <body>
 
     <div class="player-card">
-        <img id="track-art" src="https://via.placeholder.com/180?text=Violet" alt="Art">
-        <div id="track-name" style="margin-top:15px; font-weight:bold;">Выберите трек</div>
+        <img id="track-art" src="https://via.placeholder.com/180?text=Violet+Player" alt="Art">
+        <div id="track-name">Выберите трек</div>
         
-        <audio id="main-audio" src=""></audio>
+        <audio id="audio-player"></audio>
 
         <div class="controls">
             <button class="btn-ctrl" onclick="prevTrack()">⏮</button>
@@ -37,13 +40,17 @@
         </div>
     </div>
 
-    <div class="playlist" id="playlist-container"></div>
+    <div class="playlist" id="playlist-container">
+        <p style="text-align:center; opacity:0.5;">Загрузка плейлиста...</p>
+    </div>
 
     <script>
         let tg = window.Telegram.WebApp;
+        tg.expand();
+
         let songs = [];
         let currentIndex = 0;
-        const audio = document.getElementById('main-audio');
+        const audio = document.getElementById('audio-player');
         const playBtn = document.getElementById('play-btn');
 
         function loadSongs() {
@@ -51,19 +58,31 @@
                 .then(res => res.json())
                 .then(data => {
                     songs = data;
-                    if(songs.length > 0) selectTrack(0, false);
-                    renderPlaylist();
+                    if(songs.length > 0) {
+                        selectTrack(songs.length - 1, false); // Берем последний добавленный
+                        renderPlaylist();
+                    }
+                })
+                .catch(e => {
+                    document.getElementById('playlist-container').innerHTML = '<p>Плейлист пуст</p>';
                 });
         }
 
         function renderPlaylist() {
             const container = document.getElementById('playlist-container');
             container.innerHTML = '';
-            songs.forEach((song, index) => {
+            songs.slice().reverse().forEach((song, revIndex) => {
+                const realIndex = songs.length - 1 - revIndex;
                 const item = document.createElement('div');
-                item.className = `track-item ${index === currentIndex ? 'active' : ''}`;
-                item.onclick = () => selectTrack(index, true);
-                item.innerHTML = `<span style="font-size:14px;">${song.title}</span>`;
+                item.className = `track-item ${realIndex === currentIndex ? 'active' : ''}`;
+                item.onclick = () => selectTrack(realIndex, true);
+                
+                item.innerHTML = `
+                    <img src="${song.thumb}">
+                    <div style="display:flex; flex-direction:column;">
+                        <span style="font-size:14px; font-weight:bold;">${song.title}</span>
+                    </div>
+                `;
                 container.appendChild(item);
             });
         }
@@ -71,37 +90,41 @@
         function selectTrack(index, shouldPlay) {
             currentIndex = index;
             const song = songs[currentIndex];
-            document.getElementById('track-name').innerText = song.title;
             
-            // Пытаемся получить обложку
-            const videoId = song.url.split('v=')[1]?.split('&')[0];
-            if(videoId) document.getElementById('track-art').src = `https://img.youtube.com/vi/${videoId}/0.jpg`;
-
-            // ВАЖНО: Здесь должна быть прямая ссылка на файл. 
-            // Пока бот шлет ссылки на YouTube, кнопка всё равно будет открывать их.
-            audio.src = song.url; 
+            document.getElementById('track-name').innerText = song.title;
+            document.getElementById('track-art').src = song.thumb;
+            audio.src = song.url;
             
             renderPlaylist();
-            if(shouldPlay) togglePlay();
+            if(shouldPlay) {
+                audio.play();
+                playBtn.innerText = '⏸';
+            }
         }
 
         function togglePlay() {
-            if (audio.paused) {
-                // Если это ссылка на YouTube, браузер не сможет её "проиграть" как файл
-                if(songs[currentIndex].url.includes('youtube.com')) {
-                    window.open(songs[currentIndex].url, '_blank');
-                } else {
-                    audio.play();
-                    playBtn.innerText = '⏸';
-                }
+            if(songs.length === 0) return;
+            if(audio.paused) {
+                audio.play();
+                playBtn.innerText = '⏸';
             } else {
                 audio.pause();
                 playBtn.innerText = '▶️';
             }
         }
 
-        function nextTrack() { if(currentIndex < songs.length - 1) selectTrack(currentIndex + 1, true); }
-        function prevTrack() { if(currentIndex > 0) selectTrack(currentIndex - 1, true); }
+        function nextTrack() {
+            if(currentIndex < songs.length - 1) selectTrack(currentIndex + 1, true);
+            else selectTrack(0, true);
+        }
+
+        function prevTrack() {
+            if(currentIndex > 0) selectTrack(currentIndex - 1, true);
+            else selectTrack(songs.length - 1, true);
+        }
+
+        // Автопереключение на следующий трек
+        audio.onended = () => nextTrack();
 
         loadSongs();
     </script>
