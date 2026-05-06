@@ -3,159 +3,116 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Violet Player</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { background: #0f0a1e; color: #e0d7f7; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; min-height: 100vh; }
-        .player-card { background: linear-gradient(145deg, #1c1433, #251b47); width: 100%; max-width: 350px; border-radius: 25px; padding: 25px; text-align: center; box-shadow: 0 15px 35px rgba(0,0,0,0.5); position: sticky; top: 10px; z-index: 10; }
-        #track-art { width: 160px; height: 160px; border-radius: 20px; object-fit: cover; box-shadow: 0 8px 20px rgba(0,0,0,0.4); background: #3d2e6e; margin-bottom: 15px; }
-        #track-name { font-size: 18px; font-weight: bold; margin-bottom: 10px; height: 45px; overflow: hidden; line-height: 1.2; }
+        body { background: #0f0a1e; color: #e0d7f7; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; }
+        .player-card { background: #1c1433; width: 100%; max-width: 350px; border-radius: 20px; padding: 25px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        #track-art { width: 160px; height: 160px; border-radius: 15px; object-fit: cover; margin-bottom: 15px; background: #3d2e6e; }
+        #track-name { font-size: 18px; font-weight: bold; margin-bottom: 10px; height: 45px; overflow: hidden; }
         
-        /* Ползунок перемотки */
-        .seek-container { width: 100%; margin: 15px 0; }
-        #seek-bar { width: 100%; height: 6px; cursor: pointer; accent-color: #a29bfe; outline: none; border-radius: 10px; }
-        .time-info { display: flex; justify-content: space-between; font-size: 12px; color: #a29bfe; margin-top: 5px; font-family: monospace; }
+        .seek-container { width: 100%; margin-bottom: 15px; }
+        #seek-bar { width: 100%; cursor: pointer; accent-color: #a29bfe; }
+        .time-info { display: flex; justify-content: space-between; font-size: 12px; color: #a29bfe; margin-top: 5px; }
 
-        /* Управление */
-        .controls { display: flex; justify-content: center; align-items: center; gap: 25px; }
-        .btn-ctrl { background: none; border: none; color: #a29bfe; font-size: 35px; cursor: pointer; transition: 0.2s; padding: 0; }
-        .btn-ctrl:active { transform: scale(0.8); }
+        .controls { display: flex; justify-content: center; align-items: center; gap: 20px; }
+        .btn { background: none; border: none; color: #a29bfe; font-size: 35px; cursor: pointer; }
         .play-pause { font-size: 55px; color: #fff; }
         
-        /* Плейлист */
-        .playlist { width: 100%; max-width: 350px; margin-top: 25px; }
-        .track-item { 
-            background: rgba(28, 20, 51, 0.6); border: 1px solid #3d2e6e; padding: 12px; 
-            border-radius: 15px; margin-bottom: 10px; display: flex; align-items: center; cursor: pointer; position: relative;
-        }
-        .track-item.active { border-color: #a29bfe; background: #251b47; }
-        .track-item img { width: 50px; height: 50px; border-radius: 10px; margin-right: 15px; object-fit: cover; }
-        .track-info { flex-grow: 1; overflow: hidden; }
-        .track-title { font-size: 13px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
-        
-        /* Кнопка удаления */
-        .del-btn { background: none; border: none; color: #ff7675; font-size: 20px; cursor: pointer; padding: 10px; opacity: 0.7; transition: 0.3s; }
-        .del-btn:hover { opacity: 1; transform: scale(1.1); }
+        .playlist { width: 100%; max-width: 350px; margin-top: 20px; }
+        .track-item { background: #16102b; border: 1px solid #2d244a; padding: 12px; border-radius: 12px; margin-bottom: 8px; display: flex; align-items: center; cursor: pointer; }
+        .track-item.active { border-color: #a29bfe; background: #20183d; }
+        .track-item img { width: 45px; height: 45px; border-radius: 8px; margin-right: 12px; }
+        .track-info { flex: 1; overflow: hidden; }
+        .del-btn { color: #ff7675; font-size: 20px; border: none; background: none; cursor: pointer; padding: 5px; }
     </style>
 </head>
 <body>
 
     <div class="player-card">
         <img id="track-art" src="https://via.placeholder.com/160?text=Violet" alt="Art">
-        <div id="track-name">Загрузка плейлиста...</div>
+        <div id="track-name">Загрузка...</div>
         
         <div class="seek-container">
             <input type="range" id="seek-bar" value="0" min="0" max="100" step="0.1" oninput="manualSeek()">
             <div class="time-info">
-                <span id="curr-time">0:00</span>
-                <span id="total-time">0:00</span>
+                <span id="c-time">0:00</span>
+                <span id="t-time">0:00</span>
             </div>
         </div>
 
-        <audio id="audio-player"></audio>
+        <audio id="player"></audio>
 
         <div class="controls">
-            <button class="btn-ctrl" onclick="prevTrack()">⏮</button>
-            <button class="btn-ctrl play-pause" id="play-btn" onclick="togglePlay()">▶️</button>
-            <button class="btn-ctrl" onclick="nextTrack()">⏭</button>
+            <button class="btn" onclick="prev()">⏮</button>
+            <button class="btn play-pause" id="p-btn" onclick="toggle()">▶️</button>
+            <button class="btn" onclick="next()">⏭</button>
         </div>
     </div>
 
-    <div class="playlist" id="list-container">
-        </div>
+    <div class="playlist" id="list"></div>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
+        let songs = [], cur = 0;
+        const audio = document.getElementById('player');
+        const pBtn = document.getElementById('p-btn');
+        const bar = document.getElementById('seek-bar');
 
-        let songs = [];
-        let curIdx = 0;
-        const player = document.getElementById('audio-player');
-        const playBtn = document.getElementById('play-btn');
-        const seekBar = document.getElementById('seek-bar');
-
-        async function loadPlaylist() {
-            try {
-                const r = await fetch('songs.json?v=' + Date.now());
-                songs = await r.json();
-                if(songs.length > 0) {
-                    setTrack(0, false);
-                    renderList();
-                } else {
-                    document.getElementById('track-name').innerText = "Плейлист пуст";
-                }
-            } catch(e) {
-                document.getElementById('track-name').innerText = "Ошибка загрузки";
-            }
+        async function init() {
+            const r = await fetch('songs.json?v=' + Date.now());
+            songs = await r.json();
+            if(songs.length > 0) { load(0); render(); }
+            else { document.getElementById('track-name').innerText = "Пусто"; }
         }
 
-        function renderList() {
-            const container = document.getElementById('list-container');
-            container.innerHTML = '';
+        function render() {
+            const l = document.getElementById('list');
+            l.innerHTML = '';
             songs.forEach((s, i) => {
-                const item = document.createElement('div');
-                item.className = `track-item ${i === curIdx ? 'active' : ''}`;
-                
-                item.innerHTML = `
-                    <img src="${s.thumb}" onclick="selectAndPlay(${i})">
-                    <div class="track-info" onclick="selectAndPlay(${i})">
-                        <span class="track-title">${s.title}</span>
-                    </div>
-                    <button class="del-btn" onclick="deleteTrack(${i})">🗑</button>
-                `;
-                container.appendChild(item);
+                const d = document.createElement('div');
+                d.className = `track-item ${i === cur ? 'active' : ''}`;
+                d.innerHTML = `<img src="${s.thumb}" onclick="load(${i},true)"><div class="track-info" onclick="load(${i},true)"><b>${s.title}</b></div><button class="del-btn" onclick="del(${i})">🗑</button>`;
+                l.appendChild(d);
             });
         }
 
-        function setTrack(i, shouldPlay) {
-            curIdx = i;
-            const s = songs[curIdx];
+        function load(i, p) {
+            cur = i;
+            const s = songs[cur];
             document.getElementById('track-name').innerText = s.title;
             document.getElementById('track-art').src = s.thumb;
-            player.src = s.url;
-            renderList();
-            if(shouldPlay) { player.play(); playBtn.innerText = '⏸'; }
+            audio.src = s.url;
+            render();
+            if(p) { audio.play(); pBtn.innerText = '⏸'; }
         }
 
-        function selectAndPlay(i) { setTrack(i, true); }
-
-        function togglePlay() {
-            if(player.paused) { player.play(); playBtn.innerText = '⏸'; }
-            else { player.pause(); playBtn.innerText = '▶️'; }
+        function toggle() {
+            if(audio.paused) { audio.play(); pBtn.innerText = '⏸'; }
+            else { audio.pause(); pBtn.innerText = '▶️'; }
         }
 
-        function manualSeek() {
-            player.currentTime = (seekBar.value / 100) * player.duration;
-        }
+        function manualSeek() { audio.currentTime = (bar.value / 100) * audio.duration; }
 
-        player.ontimeupdate = () => {
-            if(player.duration) {
-                seekBar.value = (player.currentTime / player.duration) * 100;
-                document.getElementById('curr-time').innerText = fmt(player.currentTime);
-                document.getElementById('total-time').innerText = fmt(player.duration);
+        audio.ontimeupdate = () => {
+            if(audio.duration) {
+                bar.value = (audio.currentTime / audio.duration) * 100;
+                document.getElementById('c-time').innerText = fmt(audio.currentTime);
+                document.getElementById('t-time').innerText = fmt(audio.duration);
             }
         };
 
         function fmt(s) {
-            let m = Math.floor(s/60);
-            let sec = Math.floor(s%60);
-            return `${m}:${sec < 10 ? '0' : ''}${sec}`;
+            let m = Math.floor(s/60), sc = Math.floor(s%60);
+            return `${m}:${sc < 10 ? '0' : ''}${sc}`;
         }
 
-        function nextTrack() { setTrack((curIdx + 1) % songs.length, true); }
-        function prevTrack() { setTrack((curIdx - 1 + songs.length) % songs.length, true); }
+        function next() { load((cur + 1) % songs.length, true); }
+        function prev() { load((cur - 1 + songs.length) % songs.length, true); }
+        function del(i) { if(confirm("Удалить?")) { tg.sendData(`delete_${i}`); } }
         
-        // Функция удаления: отправляет команду боту
-        function deleteTrack(i) {
-            if(confirm(`Удалить трек "${songs[i].title}"?`)) {
-                // Отправляем индекс трека боту для удаления из JSON
-                tg.sendData(`delete_${i}`); 
-                tg.close(); // Закрываем, чтобы бот обновил данные
-            }
-        }
-
-        player.onended = nextTrack;
-        loadPlaylist();
+        audio.onended = next;
+        init();
     </script>
 </body>
 </html>
