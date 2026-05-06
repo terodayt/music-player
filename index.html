@@ -2,22 +2,128 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Violet Player</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { background: #0f0a1e; color: #e0d7f7; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; }
-        .player-card { 
-            background: linear-gradient(145deg, #1c1433, #251b47); width: 100%; max-width: 350px; 
-            border-radius: 25px; padding: 25px; box-shadow: 0 15px 35px rgba(0,0,0,0.5); text-align: center; margin-bottom: 20px;
-        }
-        #track-art { width: 180px; height: 180px; border-radius: 20px; object-fit: cover; margin-bottom: 15px; box-shadow: 0 8px 20px rgba(0,0,0,0.4); background: #3d2e6e; }
-        #track-name { font-size: 18px; font-weight: bold; height: 45px; overflow: hidden; margin-bottom: 10px; line-height: 1.2; }
+        body { background: #0f0a1e; color: #e0d7f7; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; min-height: 100vh; }
+        .player-card { background: #1c1433; width: 100%; max-width: 350px; border-radius: 20px; padding: 20px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        #track-art { width: 150px; height: 150px; border-radius: 15px; object-fit: cover; background: #3d2e6e; margin-bottom: 15px; }
+        #track-name { font-size: 16px; font-weight: bold; margin-bottom: 15px; height: 40px; overflow: hidden; }
         
-        /* Стили ползунка */
-        .seek-container { width: 100%; margin: 15px 0; }
-        #seek-bar { 
-            width: 100%; cursor: pointer; accent-color: #a29bfe; 
-            height: 6px; border-radius: 5px; outline: none;
+        .seek-container { width: 100%; margin-bottom: 20px; }
+        #seek-bar { width: 100%; height: 5px; cursor: pointer; accent-color: #a29bfe; }
+        .time-info { display: flex; justify-content: space-between; font-size: 11px; color: #a29bfe; margin-top: 5px; }
+
+        .controls { display: flex; justify-content: center; align-items: center; gap: 20px; }
+        .btn { background: none; border: none; color: #a29bfe; font-size: 30px; cursor: pointer; }
+        .play-pause { font-size: 50px; color: white; }
+        
+        .playlist { width: 100%; max-width: 350px; margin-top: 20px; }
+        .track-item { background: #16102b; border: 1px solid #2d244a; padding: 10px; border-radius: 10px; margin-bottom: 5px; display: flex; align-items: center; cursor: pointer; }
+        .track-item img { width: 40px; height: 40px; border-radius: 5px; margin-right: 10px; }
+        .track-item.active { border-color: #a29bfe; background: #20183d; }
+    </style>
+</head>
+<body>
+
+    <div class="player-card">
+        <img id="track-art" src="https://via.placeholder.com/150?text=Violet" alt="Art">
+        <div id="track-name">Загрузка...</div>
+        
+        <div class="seek-container">
+            <input type="range" id="seek-bar" value="0" min="0" max="100" step="0.1" oninput="manualSeek()">
+            <div class="time-info">
+                <span id="curr-time">0:00</span>
+                <span id="total-time">0:00</span>
+            </div>
+        </div>
+
+        <audio id="audio-player"></audio>
+
+        <div class="controls">
+            <button class="btn" onclick="prevTrack()">⏮</button>
+            <button class="btn play-pause" id="play-btn" onclick="togglePlay()">▶️</button>
+            <button class="btn" onclick="nextTrack()">⏭</button>
+        </div>
+    </div>
+
+    <div class="playlist" id="list"></div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        let songs = [];
+        let curIdx = 0;
+        const player = document.getElementById('audio-player');
+        const playBtn = document.getElementById('play-btn');
+        const seekBar = document.getElementById('seek-bar');
+
+        async function init() {
+            try {
+                const r = await fetch('songs.json?v=' + Date.now());
+                songs = await r.json();
+                if(songs.length > 0) {
+                    loadTrack(0);
+                    render();
+                } else {
+                    document.getElementById('track-name').innerText = "Плейлист пуст";
+                }
+            } catch(e) {
+                document.getElementById('track-name').innerText = "Ошибка загрузки JSON";
+            }
         }
-        .time-info { display: flex; justify-content: space-between
-                    
+
+        function render() {
+            const container = document.getElementById('list');
+            container.innerHTML = '';
+            songs.forEach((s, i) => {
+                const div = document.createElement('div');
+                div.className = `track-item ${i === curIdx ? 'active' : ''}`;
+                div.onclick = () => { loadTrack(i); player.play(); playBtn.innerText = '⏸'; };
+                div.innerHTML = `<img src="${s.thumb}"> <span style="font-size:12px;">${s.title}</span>`;
+                container.appendChild(div);
+            });
+        }
+
+        function loadTrack(i) {
+            curIdx = i;
+            const s = songs[i];
+            document.getElementById('track-name').innerText = s.title;
+            document.getElementById('track-art').src = s.thumb;
+            player.src = s.url;
+            render();
+        }
+
+        function togglePlay() {
+            if(player.paused) { player.play(); playBtn.innerText = '⏸'; }
+            else { player.pause(); playBtn.innerText = '▶️'; }
+        }
+
+        function manualSeek() {
+            player.currentTime = (seekBar.value / 100) * player.duration;
+        }
+
+        player.ontimeupdate = () => {
+            if(player.duration) {
+                seekBar.value = (player.currentTime / player.duration) * 100;
+                document.getElementById('curr-time').innerText = fmt(player.currentTime);
+                document.getElementById('total-time').innerText = fmt(player.duration);
+            }
+        };
+
+        function fmt(s) {
+            let m = Math.floor(s/60);
+            let sec = Math.floor(s%60);
+            return `${m}:${sec < 10 ? '0' : ''}${sec}`;
+        }
+
+        function nextTrack() { loadTrack((curIdx + 1) % songs.length); player.play(); playBtn.innerText = '⏸'; }
+        function prevTrack() { loadTrack((curIdx - 1 + songs.length) % songs.length); player.play(); playBtn.innerText = '⏸'; }
+        
+        player.onended = nextTrack;
+        init();
+    </script>
+</body>
+</html>
