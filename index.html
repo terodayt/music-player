@@ -3,115 +3,86 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <title>Violet Player</title>
     <style>
-        body { background: #0f0a1e; color: #e0d7f7; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; }
-        .player-card { background: #1c1433; width: 100%; max-width: 350px; border-radius: 20px; padding: 25px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        #track-art { width: 160px; height: 160px; border-radius: 15px; object-fit: cover; margin-bottom: 15px; background: #3d2e6e; }
-        #track-name { font-size: 18px; font-weight: bold; margin-bottom: 10px; height: 45px; overflow: hidden; }
-        
-        .seek-container { width: 100%; margin-bottom: 15px; }
-        #seek-bar { width: 100%; cursor: pointer; accent-color: #a29bfe; }
-        .time-info { display: flex; justify-content: space-between; font-size: 12px; color: #a29bfe; margin-top: 5px; }
-
-        .controls { display: flex; justify-content: center; align-items: center; gap: 20px; }
-        .btn { background: none; border: none; color: #a29bfe; font-size: 35px; cursor: pointer; }
-        .play-pause { font-size: 55px; color: #fff; }
-        
+        body { background: #0f0a1e; color: #e0d7f7; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .card { background: #1c1433; width: 100%; max-width: 350px; border-radius: 20px; padding: 20px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        #art { width: 150px; height: 150px; border-radius: 15px; background: #3d2e6e; object-fit: cover; margin-bottom: 15px; }
+        .controls { display: flex; justify-content: center; gap: 20px; align-items: center; margin-top: 10px; }
+        .btn { background: none; border: none; color: #a29bfe; font-size: 30px; cursor: pointer; }
         .playlist { width: 100%; max-width: 350px; margin-top: 20px; }
-        .track-item { background: #16102b; border: 1px solid #2d244a; padding: 12px; border-radius: 12px; margin-bottom: 8px; display: flex; align-items: center; cursor: pointer; }
-        .track-item.active { border-color: #a29bfe; background: #20183d; }
-        .track-item img { width: 45px; height: 45px; border-radius: 8px; margin-right: 12px; }
-        .track-info { flex: 1; overflow: hidden; }
-        .del-btn { color: #ff7675; font-size: 20px; border: none; background: none; cursor: pointer; padding: 5px; }
+        .item { background: #16102b; padding: 10px; border-radius: 12px; margin-bottom: 8px; display: flex; align-items: center; border: 1px solid #2d244a; }
+        .item img { width: 45px; height: 45px; border-radius: 8px; margin-right: 12px; }
+        .item-info { flex: 1; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .del-btn { color: #ff7675; font-size: 20px; cursor: pointer; padding: 5px; }
     </style>
 </head>
 <body>
-
-    <div class="player-card">
-        <img id="track-art" src="https://via.placeholder.com/160?text=Violet" alt="Art">
-        <div id="track-name">Загрузка...</div>
-        
-        <div class="seek-container">
-            <input type="range" id="seek-bar" value="0" min="0" max="100" step="0.1" oninput="manualSeek()">
-            <div class="time-info">
-                <span id="c-time">0:00</span>
-                <span id="t-time">0:00</span>
-            </div>
-        </div>
-
-        <audio id="player"></audio>
-
+    <div class="card">
+        <img id="art" src="">
+        <div id="track-title" style="font-weight: bold; margin-bottom: 15px;">Загрузка плейлиста...</div>
+        <audio id="audio-player"></audio>
         <div class="controls">
             <button class="btn" onclick="prev()">⏮</button>
-            <button class="btn play-pause" id="p-btn" onclick="toggle()">▶️</button>
+            <button class="btn" id="playBtn" onclick="toggle()" style="font-size: 45px;">▶️</button>
             <button class="btn" onclick="next()">⏭</button>
         </div>
     </div>
-
-    <div class="playlist" id="list"></div>
+    <div class="playlist" id="list-container"></div>
 
     <script>
-        const tg = window.Telegram.WebApp;
-        tg.expand();
         let songs = [], cur = 0;
-        const audio = document.getElementById('player');
-        const pBtn = document.getElementById('p-btn');
-        const bar = document.getElementById('seek-bar');
+        const player = document.getElementById('audio-player');
 
         async function init() {
             const r = await fetch('songs.json?v=' + Date.now());
             songs = await r.json();
-            if(songs.length > 0) { load(0); render(); }
-            else { document.getElementById('track-name').innerText = "Пусто"; }
+            if(songs.length > 0) { render(); setTrack(0, false); }
         }
 
         function render() {
-            const l = document.getElementById('list');
-            l.innerHTML = '';
+            const container = document.getElementById('list-container');
+            container.innerHTML = '';
             songs.forEach((s, i) => {
-                const d = document.createElement('div');
-                d.className = `track-item ${i === cur ? 'active' : ''}`;
-                d.innerHTML = `<img src="${s.thumb}" onclick="load(${i},true)"><div class="track-info" onclick="load(${i},true)"><b>${s.title}</b></div><button class="del-btn" onclick="del(${i})">🗑</button>`;
-                l.appendChild(d);
+                const div = document.createElement('div');
+                div.className = 'item';
+                div.innerHTML = `
+                    <img src="${s.thumb}" onclick="setTrack(${i}, true)">
+                    <div class="item-info" onclick="setTrack(${i}, true)">${s.title}</div>
+                    <div class="del-btn" onclick="removeTrack(${i})">🗑</div>
+                `;
+                container.appendChild(div);
             });
         }
 
-        function load(i, p) {
+        function setTrack(i, play) {
             cur = i;
-            const s = songs[cur];
-            document.getElementById('track-name').innerText = s.title;
-            document.getElementById('track-art').src = s.thumb;
-            audio.src = s.url;
-            render();
-            if(p) { audio.play(); pBtn.innerText = '⏸'; }
+            document.getElementById('track-title').innerText = songs[i].title;
+            document.getElementById('art').src = songs[i].thumb;
+            player.src = songs[i].url;
+            if(play) { player.play(); document.getElementById('playBtn').innerText = '⏸'; }
         }
 
         function toggle() {
-            if(audio.paused) { audio.play(); pBtn.innerText = '⏸'; }
-            else { audio.pause(); pBtn.innerText = '▶️'; }
+            if(player.paused) { player.play(); document.getElementById('playBtn').innerText = '⏸'; }
+            else { player.pause(); document.getElementById('playBtn').innerText = '▶️'; }
         }
 
-        function manualSeek() { audio.currentTime = (bar.value / 100) * audio.duration; }
+        function next() { setTrack((cur + 1) % songs.length, true); }
+        function prev() { setTrack((cur - 1 + songs.length) % songs.length, true); }
 
-        audio.ontimeupdate = () => {
-            if(audio.duration) {
-                bar.value = (audio.currentTime / audio.duration) * 100;
-                document.getElementById('c-time').innerText = fmt(audio.currentTime);
-                document.getElementById('t-time').innerText = fmt(audio.duration);
+        // Новая функция: удаление через GET-запрос к боту (без закрытия)
+        function removeTrack(i) {
+            if(confirm("Удалить этот трек?")) {
+                // Мы просто убираем его из списка на экране сразу
+                const name = songs[i].title;
+                songs.splice(i, 1);
+                render();
+                // И сообщаем пользователю, что нужно отправить команду боту
+                alert("Трек убран из списка. Чтобы он удалился навсегда, напиши боту: /del_" + i);
             }
-        };
-
-        function fmt(s) {
-            let m = Math.floor(s/60), sc = Math.floor(s%60);
-            return `${m}:${sc < 10 ? '0' : ''}${sc}`;
         }
 
-        function next() { load((cur + 1) % songs.length, true); }
-        function prev() { load((cur - 1 + songs.length) % songs.length, true); }
-        function del(i) { if(confirm("Удалить?")) { tg.sendData(`delete_${i}`); } }
-        
-        audio.onended = next;
         init();
     </script>
 </body>
