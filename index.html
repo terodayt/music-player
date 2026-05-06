@@ -3,119 +3,96 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Violet Cloud Player</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { background: #0b0e14; color: #f0f0f0; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-        .player { background: #1a1d23; width: 100%; max-width: 360px; border-radius: 24px; padding: 24px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.4); border: 1px solid #2d3139; }
-        #art { width: 180px; height: 180px; border-radius: 20px; object-fit: cover; margin-bottom: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.3); background: #252930; }
-        #title { font-size: 18px; font-weight: 600; margin-bottom: 20px; height: 48px; overflow: hidden; color: #a29bfe; }
+        body { background: #0f0a1e; color: #e0d7f7; font-family: sans-serif; margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; }
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; width: 100%; max-width: 350px; }
+        .tab { flex: 1; padding: 10px; text-align: center; background: #1c1433; border-radius: 12px; cursor: pointer; border: 1px solid #3d2e6e; }
+        .tab.active { background: #a29bfe; color: #0f0a1e; border-color: #a29bfe; }
         
-        .seek-area { width: 100%; margin-bottom: 20px; }
-        #seek-bar { width: 100%; height: 6px; border-radius: 3px; accent-color: #a29bfe; cursor: pointer; }
-        .times { display: flex; justify-content: space-between; font-size: 12px; color: #6c757d; margin-top: 8px; font-family: monospace; }
-
-        .btns { display: flex; justify-content: center; align-items: center; gap: 20px; }
-        .btn { background: none; border: none; color: #a29bfe; font-size: 32px; cursor: pointer; transition: 0.2s; }
-        .btn:active { transform: scale(0.9); }
-        .play-btn { font-size: 56px; color: #fff; }
+        .player-card { background: #1c1433; width: 100%; max-width: 350px; border-radius: 20px; padding: 20px; text-align: center; margin-bottom: 20px; }
+        #art { width: 140px; height: 140px; border-radius: 15px; object-fit: cover; background: #3d2e6e; }
         
-        .list { width: 100%; max-width: 360px; margin-top: 30px; }
-        .track { background: #1a1d23; border: 1px solid #2d3139; padding: 12px; border-radius: 16px; margin-bottom: 12px; display: flex; align-items: center; }
-        .track img { width: 48px; height: 48px; border-radius: 10px; margin-right: 14px; }
-        .track-info { flex: 1; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .action-btn { font-size: 20px; padding: 8px; cursor: pointer; opacity: 0.8; }
+        .list { width: 100%; max-width: 350px; }
+        .item { background: #16102b; padding: 12px; border-radius: 12px; margin-bottom: 8px; display: flex; align-items: center; border: 1px solid #2d244a; }
+        .item-info { flex: 1; font-size: 14px; overflow: hidden; text-overflow: ellipsis; }
+        .plus-btn { color: #a29bfe; font-size: 24px; padding: 0 10px; cursor: pointer; }
     </style>
 </head>
 <body>
 
-    <div class="player">
-        <img id="art" src="https://via.placeholder.com/180/252930/a29bfe?text=Violet">
-        <div id="title">Загрузка музыки...</div>
-        
-        <div class="seek-area">
-            <input type="range" id="seek-bar" value="0">
-            <div class="times">
-                <span id="cur">0:00</span>
-                <span id="dur">0:00</span>
-            </div>
-        </div>
-
-        <audio id="audio"></audio>
-        <div class="btns">
-            <button class="btn" onclick="prev()">⏮</button>
-            <button class="btn play-btn" id="pBtn" onclick="toggle()">▶️</button>
-            <button class="btn" onclick="next()">⏭</button>
-        </div>
+    <div class="tabs">
+        <div class="tab active" id="tab1" onclick="switchTab(1)">Моя Музыка</div>
+        <div class="tab" id="tab2" onclick="switchTab(2)">Лента (Сайт)</div>
     </div>
 
-    <div class="list" id="list"></div>
+    <div class="player-card" id="player-ui">
+        <img id="art" src="">
+        <div id="track-title" style="margin: 15px 0; font-weight: bold;">Выбери трек</div>
+        <audio id="audio-player" controls style="width: 100%; height: 35px;"></audio>
+    </div>
+
+    <div class="list" id="content-list"></div>
 
     <script>
         const tg = window.Telegram.WebApp;
-        let songs = [], cur = 0;
-        const player = document.getElementById('audio');
-        const bar = document.getElementById('seek-bar');
+        let mySongs = [], feedSongs = [], currentTab = 1;
+        const player = document.getElementById('audio-player');
 
-        async function init() {
-            const res = await fetch('songs.json?v=' + Date.now());
-            songs = await res.json();
-            if(songs.length > 0) { render(); load(0, false); }
+        // Список треков с твоего сайта (пример парсинга)
+        const SITE_URL = "https://share.google/GTvLDGLpnJf8R2KMp";
+
+        async function loadMyMusic() {
+            const r = await fetch('songs.json?v=' + Date.now());
+            mySongs = await r.json();
+            if(currentTab === 1) render(mySongs);
         }
 
-        function render() {
-            const l = document.getElementById('list');
-            l.innerHTML = '';
-            songs.forEach((s, i) => {
-                const d = document.createElement('div');
-                d.className = 'track';
-                d.innerHTML = `
-                    <img src="${s.thumb}" onclick="load(${i}, true)">
-                    <div class="track-info" onclick="load(${i}, true)"><b>${s.title}</b></div>
-                    <div class="action-btn" onclick="saveToCloud(${i})">➕</div>
-                    <div class="action-btn" onclick="del(${i})">🗑</div>
+        function loadFeed() {
+            // Здесь имитация того, что мы нашли на сайте
+            feedSongs = [
+                { title: "Эстетика 00-х (Трек 1)", url: SITE_URL, thumb: "https://via.placeholder.com/50/a29bfe/ffffff?text=00s" },
+                { title: "Dota 2 Phonk", url: SITE_URL, thumb: "https://via.placeholder.com/50/a29bfe/ffffff?text=Dota" }
+            ];
+            if(currentTab === 2) render(feedSongs);
+        }
+
+        function render(data) {
+            const container = document.getElementById('content-list');
+            container.innerHTML = '';
+            data.forEach((s, i) => {
+                const div = document.createElement('div');
+                div.className = 'item';
+                div.innerHTML = `
+                    <div class="item-info" onclick="play(${i})"><b>${s.title}</b></div>
+                    ${currentTab === 2 ? `<div class="plus-btn" onclick="addToCloud('${s.url}')">➕</div>` : ''}
                 `;
-                l.appendChild(d);
+                container.appendChild(div);
             });
         }
 
-        function load(i, p) {
-            cur = i;
-            document.getElementById('title').innerText = songs[i].title;
-            document.getElementById('art').src = songs[i].thumb;
-            player.src = songs[i].url;
-            if(p) { player.play(); document.getElementById('pBtn').innerText = '⏸'; }
+        function play(i) {
+            const list = currentTab === 1 ? mySongs : feedSongs;
+            document.getElementById('track-title').innerText = list[i].title;
+            document.getElementById('art').src = list[i].thumb;
+            player.src = list[i].url;
+            player.play();
         }
 
-        function toggle() {
-            if(player.paused) { player.play(); document.getElementById('pBtn').innerText = '⏸'; }
-            else { player.pause(); document.getElementById('pBtn').innerText = '▶️'; }
+        function switchTab(t) {
+            currentTab = t;
+            document.getElementById('tab1').className = t === 1 ? 'tab active' : 'tab';
+            document.getElementById('tab2').className = t === 2 ? 'tab active' : 'tab';
+            t === 1 ? render(mySongs) : loadFeed();
         }
 
-        player.ontimeupdate = () => {
-            if(player.duration) {
-                bar.max = player.duration;
-                bar.value = player.currentTime;
-                document.getElementById('cur').innerText = fmt(player.currentTime);
-                document.getElementById('dur').innerText = fmt(player.duration);
-            }
-        };
-
-        bar.onchange = () => { player.currentTime = bar.value; };
-
-        function fmt(s) {
-            let m = Math.floor(s/60), sc = Math.floor(s%60);
-            return `${m}:${sc < 10 ? '0' : ''}${sc}`;
+        function addToCloud(url) {
+            tg.sendData("cloud_" + url);
+            tg.showAlert("Эрика скачивает трек в Telegram! Подожди немного...");
         }
 
-        function next() { load((cur + 1) % songs.length, true); }
-        function prev() { load((cur - 1 + songs.length) % songs.length, true); }
-        
-        // Новые функции без вылета приложения
-        function saveToCloud(i) { tg.sendData(`save_${i}`); }
-        function del(i) { if(confirm("Удалить трек?")) { tg.sendData(`del_${i}`); } }
-
-        init();
+        loadMyMusic();
+        loadFeed();
     </script>
 </body>
 </html>
