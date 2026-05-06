@@ -3,41 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Erika Music</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { background: #0f0a1e; color: #e0d7f7; font-family: sans-serif; padding: 15px; margin: 0; display: flex; flex-direction: column; align-items: center; }
-        .tabs { display: flex; width: 100%; max-width: 350px; background: #1c1433; border-radius: 12px; margin-bottom: 15px; padding: 4px; }
-        .tab { flex: 1; padding: 8px; text-align: center; border-radius: 10px; cursor: pointer; color: #6c757d; }
-        .tab.active { background: #a29bfe; color: #0f0a1e; font-weight: bold; }
+        :root { --bg: #0b0e14; --card: #1a1d23; --accent: #a29bfe; --text: #f0f0f0; }
+        body { background: var(--bg); color: var(--text); font-family: sans-serif; margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; }
         
-        .card { background: #1c1433; width: 100%; max-width: 350px; border-radius: 20px; padding: 20px; text-align: center; margin-bottom: 20px; }
-        #art { width: 120px; height: 120px; border-radius: 15px; object-fit: cover; background: #251b47; }
-        
-        .list { width: 100%; max-width: 350px; }
-        .item { background: #16102b; padding: 12px; border-radius: 12px; margin-bottom: 8px; display: flex; align-items: center; border: 1px solid #2d244a; }
-        .item-info { flex: 1; font-size: 14px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-        .btn-add { color: #a29bfe; font-size: 24px; padding: 0 10px; cursor: pointer; }
+        .tabs { display: flex; width: 100%; max-width: 380px; background: var(--card); border-radius: 14px; padding: 4px; margin-bottom: 20px; }
+        .tab { flex: 1; padding: 10px; text-align: center; border-radius: 10px; cursor: pointer; color: #6c757d; font-size: 14px; }
+        .tab.active { background: var(--accent); color: #0b0e14; font-weight: bold; }
+
+        .player { background: var(--card); width: 100%; max-width: 380px; border-radius: 20px; padding: 20px; text-align: center; border: 1px solid #2d3139; margin-bottom: 20px; }
+        #art { width: 120px; height: 120px; border-radius: 15px; background: #252930; object-fit: cover; margin-bottom: 15px; }
+        #title { font-size: 16px; font-weight: bold; margin-bottom: 4px; }
+        #artist { font-size: 13px; color: var(--accent); margin-bottom: 15px; }
+        audio { width: 100%; height: 35px; }
+
+        .list { width: 100%; max-width: 380px; }
+        .track { background: var(--card); padding: 12px; border-radius: 15px; margin-bottom: 10px; display: flex; align-items: center; border: 1px solid #2d3139; }
+        .track-info { flex: 1; min-width: 0; cursor: pointer; }
+        .t-name { font-size: 14px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .t-art { font-size: 12px; color: #6c757d; }
+        .btn-plus { color: var(--accent); font-size: 26px; padding: 0 10px; cursor: pointer; }
     </style>
 </head>
 <body>
 
     <div class="tabs">
-        <div class="tab active" id="t1" onclick="tab(1)">Лента (Сайт)</div>
-        <div class="tab" id="t2" onclick="tab(2)">Облако (ТГ)</div>
+        <div class="tab active" id="t1" onclick="sw(1)">Результаты ВК</div>
+        <div class="tab" id="t2" onclick="sw(2)">Моё Облако (TG)</div>
     </div>
 
-    <div class="card">
-        <img id="art" src="">
-        <div id="m-title" style="margin: 10px 0; font-weight: bold; font-size: 14px;">Выбери музыку</div>
-        <audio id="player" controls style="width: 100%;"></audio>
+    <div class="player">
+        <img id="art" src="https://img.icons8.com/fluency/180/compact-disc.png">
+        <div id="title">Выбери трек</div>
+        <div id="artist">Поиск в ВК через чат</div>
+        <audio id="audio" controls></audio>
     </div>
 
-    <div class="list" id="list"></div>
+    <div id="list" class="list"></div>
 
     <script>
         const tg = window.Telegram.WebApp;
         let songs = [], mode = 1;
-        const player = document.getElementById('player');
+        const player = document.getElementById('audio');
 
         async function load() {
             const r = await fetch('songs.json?v=' + Date.now());
@@ -46,31 +55,34 @@
         }
 
         function render() {
-            const container = document.getElementById('list');
-            container.innerHTML = '';
-            // Фильтруем: mode 1 - лента (is_feed), mode 2 - облако (tg_file или не is_feed)
-            const filtered = songs.filter(s => mode === 1 ? s.is_feed : !s.is_feed);
+            const cont = document.getElementById('list');
+            cont.innerHTML = '';
+            const filtered = songs.filter(s => mode === 2 ? s.is_cloud : !s.is_cloud);
             
             filtered.forEach((s, i) => {
-                const div = document.createElement('div');
-                div.className = 'item';
-                div.innerHTML = `
-                    <div class="item-info" onclick="playS('${s.url}', '${s.title}', '${s.thumb}')"><b>${s.title}</b></div>
-                    ${mode === 1 ? `<div class="btn-add" onclick="save('${s.url}')">➕</div>` : ''}
+                const d = document.createElement('div');
+                d.className = 'track';
+                d.innerHTML = `
+                    <div class="track-info" onclick="play('${s.url}', '${s.title}', '${s.artist}', '${s.thumb}')">
+                        <div class="t-name">${s.title}</div>
+                        <div class="t-art">${s.artist}</div>
+                    </div>
+                    ${mode === 1 ? `<div class="btn-plus" onclick="save('${s.url}', '${s.title}', '${s.artist}')">⊕</div>` : ''}
                 `;
-                container.appendChild(div);
+                cont.appendChild(d);
             });
         }
 
-        function playS(url, t, img) {
-            document.getElementById('m-title').innerText = t;
+        function play(u, t, a, img) {
+            document.getElementById('title').innerText = t;
+            document.getElementById('artist').innerText = a;
             document.getElementById('art').src = img;
-            player.src = url;
-            player.play().catch(() => tg.showAlert("Эта ссылка больше не работает. Нажми '+', чтобы Эрика перезалила её в ТГ."));
+            player.src = u;
+            player.play();
         }
 
-        function tab(m) { mode = m; document.getElementById('t1').className = m===1?'tab active':'tab'; document.getElementById('t2').className = m===2?'tab active':'tab'; render(); }
-        function save(url) { tg.sendData("cloud_" + url); tg.close(); }
+        function sw(m) { mode = m; document.getElementById('t1').className = m===1?'tab active':'tab'; document.getElementById('t2').className = m===2?'tab active':'tab'; render(); }
+        function save(u, t, a) { tg.sendData(`cloud_|${u}|${t}|${a}`); tg.close(); }
 
         load();
     </script>
