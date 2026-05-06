@@ -5,90 +5,72 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { background: #0b0e14; color: #f0f0f0; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; }
-        .tabs { display: flex; width: 100%; max-width: 360px; background: #1a1d23; border-radius: 15px; padding: 5px; margin-bottom: 20px; border: 1px solid #2d3139; }
-        .tab { flex: 1; padding: 10px; text-align: center; border-radius: 12px; cursor: pointer; transition: 0.3s; color: #6c757d; }
-        .tab.active { background: #a29bfe; color: #0b0e14; font-weight: bold; }
+        body { background: #0f0a1e; color: #e0d7f7; font-family: sans-serif; padding: 15px; margin: 0; display: flex; flex-direction: column; align-items: center; }
+        .tabs { display: flex; width: 100%; max-width: 350px; background: #1c1433; border-radius: 12px; margin-bottom: 15px; padding: 4px; }
+        .tab { flex: 1; padding: 8px; text-align: center; border-radius: 10px; cursor: pointer; color: #6c757d; }
+        .tab.active { background: #a29bfe; color: #0f0a1e; font-weight: bold; }
         
-        .player { background: #1a1d23; width: 100%; max-width: 360px; border-radius: 20px; padding: 20px; text-align: center; box-shadow: 0 15px 30px rgba(0,0,0,0.5); border: 1px solid #2d3139; margin-bottom: 25px; }
-        #art { width: 130px; height: 130px; border-radius: 20px; background: #252930; object-fit: cover; }
+        .card { background: #1c1433; width: 100%; max-width: 350px; border-radius: 20px; padding: 20px; text-align: center; margin-bottom: 20px; }
+        #art { width: 120px; height: 120px; border-radius: 15px; object-fit: cover; background: #251b47; }
         
-        .list { width: 100%; max-width: 360px; }
-        .track { background: #1a1d23; padding: 12px; border-radius: 15px; margin-bottom: 10px; display: flex; align-items: center; border: 1px solid #2d3139; }
-        .track-info { flex: 1; margin-right: 10px; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .btn-plus { color: #a29bfe; font-size: 24px; cursor: pointer; }
-        .btn-cloud { color: #00d2d3; font-size: 18px; }
+        .list { width: 100%; max-width: 350px; }
+        .item { background: #16102b; padding: 12px; border-radius: 12px; margin-bottom: 8px; display: flex; align-items: center; border: 1px solid #2d244a; }
+        .item-info { flex: 1; font-size: 14px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+        .btn-add { color: #a29bfe; font-size: 24px; padding: 0 10px; cursor: pointer; }
     </style>
 </head>
 <body>
 
     <div class="tabs">
-        <div class="tab active" id="t1" onclick="switchT(1)">Лента (Сайт)</div>
-        <div class="tab" id="t2" onclick="switchT(2)">Моё Облако</div>
+        <div class="tab active" id="t1" onclick="tab(1)">Лента (Сайт)</div>
+        <div class="tab" id="t2" onclick="tab(2)">Облако (ТГ)</div>
     </div>
 
-    <div class="player">
+    <div class="card">
         <img id="art" src="">
-        <div id="title" style="margin: 15px 0; font-weight: 600;">Выбери музыку</div>
-        <audio id="audio" controls style="width: 100%;"></audio>
+        <div id="m-title" style="margin: 10px 0; font-weight: bold; font-size: 14px;">Выбери музыку</div>
+        <audio id="player" controls style="width: 100%;"></audio>
     </div>
 
-    <div id="list" class="list"></div>
+    <div class="list" id="list"></div>
 
     <script>
         const tg = window.Telegram.WebApp;
-        let allTracks = [], currentTab = 1;
-        const player = document.getElementById('audio');
-
-        // Имитация данных с твоего сайта
-        const feed = [
-            { title: "Retro Track 2000s", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", thumb: "https://via.placeholder.com/50/a29bfe/fff" },
-            { title: "Dota 2 Epic Music", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", thumb: "https://via.placeholder.com/50/a29bfe/fff" }
-        ];
+        let songs = [], mode = 1;
+        const player = document.getElementById('player');
 
         async function load() {
             const r = await fetch('songs.json?v=' + Date.now());
-            allTracks = await r.json();
+            songs = await r.json();
             render();
         }
 
         function render() {
             const container = document.getElementById('list');
             container.innerHTML = '';
+            // Фильтруем: mode 1 - лента (is_feed), mode 2 - облако (tg_file или не is_feed)
+            const filtered = songs.filter(s => mode === 1 ? s.is_feed : !s.is_feed);
             
-            const displayList = currentTab === 1 ? feed : allTracks.filter(t => t.is_cloud);
-            
-            displayList.forEach((s, i) => {
-                const d = document.createElement('div');
-                d.className = 'track';
-                d.innerHTML = `
-                    <div class="track-info" onclick="playS('${s.url}', '${s.title}', '${s.thumb}')">
-                        <b>${s.title}</b>
-                    </div>
-                    ${currentTab === 1 ? `<div class="btn-plus" onclick="save('${s.url}', '${s.title}')">➕</div>` : '<div class="btn-cloud">☁️</div>'}
+            filtered.forEach((s, i) => {
+                const div = document.createElement('div');
+                div.className = 'item';
+                div.innerHTML = `
+                    <div class="item-info" onclick="playS('${s.url}', '${s.title}', '${s.thumb}')"><b>${s.title}</b></div>
+                    ${mode === 1 ? `<div class="btn-add" onclick="save('${s.url}')">➕</div>` : ''}
                 `;
-                container.appendChild(d);
+                container.appendChild(div);
             });
         }
 
-        function playS(url, title, thumb) {
-            document.getElementById('title').innerText = title;
-            document.getElementById('art').src = thumb;
+        function playS(url, t, img) {
+            document.getElementById('m-title').innerText = t;
+            document.getElementById('art').src = img;
             player.src = url;
-            player.play();
+            player.play().catch(() => tg.showAlert("Эта ссылка больше не работает. Нажми '+', чтобы Эрика перезалила её в ТГ."));
         }
 
-        function switchT(t) {
-            currentTab = t;
-            document.getElementById('t1').className = t === 1 ? 'tab active' : 'tab';
-            document.getElementById('t2').className = t === 2 ? 'tab active' : 'tab';
-            render();
-        }
-
-        function save(url, title) {
-            tg.sendData(`save_|${url}|${title}`);
-            tg.showAlert("Эрика сохраняет этот трек в твоё облако...");
-        }
+        function tab(m) { mode = m; document.getElementById('t1').className = m===1?'tab active':'tab'; document.getElementById('t2').className = m===2?'tab active':'tab'; render(); }
+        function save(url) { tg.sendData("cloud_" + url); tg.close(); }
 
         load();
     </script>
